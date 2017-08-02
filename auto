@@ -1,0 +1,54 @@
+<script type="text/javascript">
+    var textbox;
+    var selectValue;
+
+    $(function () {
+        textbox = $("#txtPepId");
+        selectValue = $('ul#selectedValue');
+
+        textbox.on("input", function () {
+            getAutoComplete(textbox.val());
+        });
+    });
+    function getAutoComplete(countryName) {
+        var uri = "Home/AutoComplete";
+        $.getJSON(uri, { prefix: countryName })
+       .done(function (data) {
+           selectValue.html("");
+           var count = 0;
+           $.each(data, function (key, item) {
+               
+               var li = $('<li/>').addClass('ui-menu-item').attr('role', 'menuitem').html("<a href='#' onclick=\"setText('" + item.val + "')\">" + item.val + "</a>").appendTo(selectValue);
+
+               count++;
+           });
+       });
+    }
+    function setText(text) {
+        textbox.val(text);
+        getAutoComplete(text);
+    }
+
+</script>
+ 
+
+<div id="nav">
+    <input type="text" id="txtPepId"  />
+    <ul id="selectedValue"></ul>
+</div>
+
+Controller Code:
+ public JsonResult AutoComplete(string prefix)
+        {
+            CDDGEntities entities = new CDDGEntities();
+            var PepIds = (from pep in entities.CDDGPeps.ToList()
+                             where pep.PepId.ToString().Contains(prefix)
+                             select new
+                             {
+                                 label = pep.PepId,
+                                 val = pep.PepId
+                             }).ToList();
+
+
+            return Json(PepIds, JsonRequestBehavior.AllowGet);
+        }
