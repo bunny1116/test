@@ -1,0 +1,193 @@
+create table #result
+(pepid int,CustomerName varchar(150),UserName varchar(150),ChangedFields varchar(500),ChangedValue varchar(500),UpdatedTime datetime)
+select Gpep.PepId,Gpep.PepLevelId,Gpep.PepTypeId,cust.CustomerName,Gpep.RequestorComments,
+Gpep.PepDeterminationComments,Gpep.BookingOfficeId,cust.CustomerStatus,Gpep.UpdatedTS,
+cust.EntityName,
+cust.CustomerId, ISNULL(guser.FirstName,'') + ' '+ ISNULL(guser.LastName,'') as UserName into #temp1
+from CDDGpep Gpep
+join CDDGCustomer cust
+on Gpep.CustomerId=cust.CustomerId
+left join CDDGUser guser
+on guser.LanId =Gpep.CreatedBy
+where Gpep.PepId = 15
+DECLARE @PepId INT, @PeplevelId int =0 ,@PepType varchar(100),@CustomerId int,
+@PepDetComments varchar(max),
+@RequesterComments varchar(max),@BookingOfcId int,
+@CustomerName varchar(200),@UserName varchar(200),
+@PrimaryPepAssociationId int,@CountryBSAApprovalId int,@EntityName varchar(255),@Updated_TS datetime
+--Loop for comparing history row with current row
+DECLARE PepCURSOR CURSOR FOR
+select pepid, PepLevelId,PepTypeId,CustomerId,CustomerName,UserName,
+ PepDeterminationComments,RequestorComments,BookingOfficeId,EntityName,UpdatedTS
+from #temp1
+OPEN PepCURSOR
+FETCH NEXT FROM PepCURSOR INTO @PepId, @PeplevelId,@PepType,@CustomerId,@CustomerName,
+                   @UserName,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS
+WHILE (@@FETCH_STATUS=0) 
+BEGIN
+ -- PeplevelId,peptype, customerid history checking
+declare  @PepLevelIdHist int = 0 ,@PepTypeHist varchar(100),@CustomerIdHist int,
+@PepDetCommentsHist varchar(max),
+@RequesterCommentsHist varchar(max),@BookingOfcIdHist int
+declare @ChangedFieldName varchar(max)
+--Get history row from cddgpephistory table for given pepid
+select top 1 @PepLevelIdHist=pephist.PepLevelId,@PepTypeHist = pephist.PepTypeId,
+@CustomerIdHist = pephist.CustomerId, @PepDetCommentsHist=PepDeterminationComments,
+@BookingOfcIdHist=BookingOfficeId,
+@RequesterCommentsHist=RequestorComments
+ from CDDGPepHistory pephist 
+where pephist.PepId = @PepId
+order by pephist.CreatedTS desc
+declare @HistCount int
+select @HistCount = count(*) from CDDGPepHistory pephist where pephist.PepId = @PepId
+if(@HistCount > 0 )
+begin
+if(isnull(@PepLevelIdHist,0) <> ISNULL(@PeplevelId,0))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'PepLevelId',@PeplevelId,@Updated_TS)
+end
+if(isnull(@PepTypeHist,0) <>ISNULL(@PepType,0) )
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'PepType',@PepType,@Updated_TS)
+end
+declare @CustmerStatusId int,@CustomerHistoryId int,@EntityNameHist varchar(255)
+declare @CustmerName varchar(255),@CustomerNamehist varchar(255) 
+declare @EntityFormationCountry int,@EntityFormationCountryhist int 
+declare @FirstName varchar(255), @FirstNameHist varchar(255)
+declare @LastName varchar(255), @LastNameHist varchar(255)
+declare @IndividualAKAName varchar(255), @IndividualAKANameHist varchar(255)
+declare @IndividualCitizenshipCountry int,@IndividualCitizenshipCountryHist int
+declare @CustCountryBsaApprovalId int,@CustCountryBsaApprovalIdHist int
+select @CustmerStatusId=CustomerStatus,@CustmerName=CustomerName,
+ @EntityFormationCountry=EntityFormationCountry,@FirstName=IndividualFirstName,
+ @LastName=IndividualLastName ,@IndividualAKAName= IndividualAKAName ,
+ @IndividualCitizenshipCountry=IndividualCitizenshipCountry,
+ @CustCountryBsaApprovalId=CountryBsaApprovalId from CDDGCustomer where CustomerId=@CustomerId
+ --get customer hisotry from CDDGCustomer for customerid
+select @CustomerHistoryId=CustomerStatus,@CustomerNamehist=CustomerName,
+@EntityNameHist=EntityName,@FirstNameHist=IndividualFirstName, @LastNameHist=IndividualLastName ,
+@EntityFormationCountryhist=EntityFormationCountry ,@IndividualAKANameHist =IndividualAKAName ,
+@IndividualCitizenshipCountryHist =IndividualCitizenshipCountry,
+@CustCountryBsaApprovalId=CountryBsaApprovalId from CDDGCustomer where CustomerId=@CustomerIdHist
+if(isnull(@CustmerStatusId,'') <> isnull(@CustomerHistoryId,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Customer Status',@CustmerStatusId,@Updated_TS)
+end
+--Customer Name history check
+ 
+if(isnull(@CustmerName,'') <> isnull(@CustomerNamehist,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Customer Name',@CustmerName,@Updated_TS)
+end
+--Entity Name history check
+if(isnull(@EntityName,'') <> isnull(@EntityNameHist,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Entity Name',@EntityName,@Updated_TS)
+end
+--Entity Formation Country history check
+ 
+if(isnull(@EntityFormationCountry,'') <> isnull(@EntityFormationCountryhist,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Entity Formation Country',@EntityFormationCountry,@Updated_TS)
+end
+--First Name history check
+if(isnull(@FirstName,'') <> isnull( @FirstNameHist,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Customer First Name',@FirstName,@Updated_TS)
+end
+--Last Name history check
+ 
+if(isnull(@LastName,'')  <> isnull(@LastNameHist,'') )
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'Customer Last Name',@LastName,@Updated_TS)
+end
+--AKA Name history check
+if(isnull(@IndividualAKAName,'') <> isnull(@IndividualAKANameHist,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'IndividualAKAName',@IndividualAKAName,@Updated_TS)
+end
+--Individual citizenship country history check
+if(isnull(@IndividualCitizenshipCountry,0) <> isnull(@IndividualCitizenshipCountryHist,0))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'IndividualCitizenshipCountry',@IndividualCitizenshipCountry,@Updated_TS)
+end
+--Country BSA ApprovalId history check
+if(isnull(@CustCountryBsaApprovalId,0) <>isnull(@CustCountryBsaApprovalIdHist,0) )
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'CustCountryBsaApprovalId',@CustCountryBsaApprovalId,@Updated_TS)
+end
+ 
+if(isnull(@PepDetCommentsHist,'') <> isnull(@PepDetComments,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'PepDeterminationComments',@PepDetComments,@Updated_TS)
+end
+--RequesterComments Comment history check
+
+if(isnull(@RequesterCommentsHist,'') <> isnull(@RequesterComments,''))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'RequesterComments',@RequesterComments,@Updated_TS)
+end
+--BookingOfc Id Comment history check
+if(isnull(@BookingOfcIdHist,0) <> isnull(@BookingOfcId,0))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'BookingOficeId',@BookingOfcId,@Updated_TS)
+end
+--Lob pep history check history check
+ declare @LobPepId int, @LobPepIdHist int
+ select @LobPepId=LobId from CDDGLobPep where PepId=@PepId and enddate is null
+ --get lob history row from CDDGLobPep for given pepid
+ select @LobPepIdHist=LobId from CDDGLobPep where PepId=@PepId and enddate is not null order by CreatedTS desc
+ 
+if(isnull(@LobPepIdHist,0) <> isnull(@LobPepId,0))
+begin
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'LobId',@LobPepId,@Updated_TS)
+end
+--ecn history checking
+declare @Ecn varchar(255) ,@EcnSeqNo int 
+DECLARE @ECNCursor CURSOR
+SET @ECNCursor = CURSOR FAST_FORWARD
+FOR
+select ecn,EcnSeqVal from CDDGEcn where PepId=@PepId and EndDate is null
+OPEN @ECNCursor
+FETCH NEXT FROM @ECNCursor INTO @Ecn,@EcnSeqNo
+WHILE @@FETCH_STATUS = 0
+BEGIN
+ declare @HistEcn varchar(255)
+ select top 1 @HistEcn=Ecn from CDDGEcn where PepId=@PepId and EndDate is not null and EcnSeqVal=@EcnSeqNo order by CreatedTS desc
+ if(@HistEcn is null)
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'ECN Inserted',@Ecn,@Updated_TS)
+  else
+ if(isnull(@ecn,'') <> isnull(@HistEcn,''))
+  insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'ECN Updated',@Ecn,@Updated_TS)
+ set @HistEcn = null
+FETCH NEXT FROM @ECNCursor INTO  @Ecn,@EcnSeqNo
+END
+CLOSE @ECNCursor
+DEALLOCATE @ECNCursor
+
+FETCH NEXT FROM PepCURSOR INTO @PepId, @PeplevelId,@PepType,@CustomerId,@CustomerName,@UserName 
+              ,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS
+END
+CLOSE PepCURSOR 
+DEALLOCATE PepCURSOR
+select * from #result
+drop table #result
+drop table #temp1
+End
