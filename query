@@ -158,26 +158,37 @@ insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,Updat
 values(@PepId,@CustomerName,@UserName,'LobId',@LobPepId,@Updated_TS)
 end
 --ecn history checking
-declare @Ecn varchar(255) ,@EcnSeqNo int 
+declare @Ecn varchar(255) ,@EcnSeqNo int ,@ECNNotProvided bit,@IsFlagged bit
 DECLARE @ECNCursor CURSOR
 SET @ECNCursor = CURSOR FAST_FORWARD
 FOR
-select ecn,EcnSeqVal from CDDGEcn where PepId=@PepId and EndDate is null
+select ecn,EcnSeqVal,PrimaryEcnNotProvided,IsFlagged from CDDGEcn where PepId=@PepId and EndDate is null
 OPEN @ECNCursor
-FETCH NEXT FROM @ECNCursor INTO @Ecn,@EcnSeqNo
+FETCH NEXT FROM @ECNCursor INTO @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged
 WHILE @@FETCH_STATUS = 0
 BEGIN
- declare @HistEcn varchar(255)
- select top 1 @HistEcn=Ecn from CDDGEcn where PepId=@PepId and EndDate is not null and EcnSeqVal=@EcnSeqNo order by CreatedTS desc
+ declare @HistEcn varchar(255),@HistEcnNotProvided bit,@HistIsFlagged bit
+ select top 1 @HistEcn=Ecn,@ECNNotProvided=PrimaryEcnNotProvided,@HistIsFlagged=IsFlagged from CDDGEcn
+  where PepId=@PepId and EndDate is not null and EcnSeqVal=@EcnSeqNo order by CreatedTS desc
  if(@HistEcn is null)
 insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
-values(@PepId,@CustomerName,@UserName,'ECN Inserted',@Ecn,@Updated_TS)
-  else
+values(@PepId,@CustomerName,@UserName,'ECN Added',@Ecn,@Updated_TS)
+ else
  if(isnull(@ecn,'') <> isnull(@HistEcn,''))
   insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
 values(@PepId,@CustomerName,@UserName,'ECN Updated',@Ecn,@Updated_TS)
+--Ecn not provided
+ if(@HistEcnNotProvided is not null and @HistEcnNotProvided = 1)
+ insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+ values(@PepId,@CustomerName,@UserName,'ECN Not Provided',@ECNNotProvided,@Updated_TS)
+ --IsFlagged
+ if(@HistIsFlagged is not null and @HistIsFlagged = 1)
+ insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+ values(@PepId,@CustomerName,@UserName,'IsFlagged',@IsFlagged,@Updated_TS)
  set @HistEcn = null
-FETCH NEXT FROM @ECNCursor INTO  @Ecn,@EcnSeqNo
+ set @HistEcnNotProvided = null
+ set @HistIsFlagged= null
+FETCH NEXT FROM @ECNCursor INTO  @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged
 END
 CLOSE @ECNCursor
 DEALLOCATE @ECNCursor
