@@ -1,7 +1,7 @@
 create table #result
 (pepid int,CustomerName varchar(150),UserName varchar(150),ChangedFields varchar(500),ChangedValue varchar(500),UpdatedTime datetime)
 select Gpep.PepId,Gpep.PepLevelId,Gpep.PepTypeId,cust.CustomerName,Gpep.RequestorComments,
-Gpep.PepDeterminationComments,Gpep.BookingOfficeId,cust.CustomerStatus,Gpep.UpdatedTS,
+Gpep.PepDeterminationComments,Gpep.BookingOfficeId,cust.CustomerStatus,Gpep.CreatedTS,Gpep.WCISNumber,
 cust.EntityName,
 cust.CustomerId, ISNULL(guser.FirstName,'') + ' '+ ISNULL(guser.LastName,'') as UserName into #temp1
 from CDDGpep Gpep
@@ -14,19 +14,20 @@ DECLARE @PepId INT, @PeplevelId int =0 ,@PepType varchar(100),@CustomerId int,
 @PepDetComments varchar(max),
 @RequesterComments varchar(max),@BookingOfcId int,
 @CustomerName varchar(200),@UserName varchar(200),
-@PrimaryPepAssociationId int,@CountryBSAApprovalId int,@EntityName varchar(255),@Updated_TS datetime
+@PrimaryPepAssociationId int,@CountryBSAApprovalId int,@EntityName varchar(255),@Updated_TS datetime,
+@WCISNumber varchar(50)
 --Loop for comparing history row with current row
 DECLARE PepCURSOR CURSOR FOR
 select pepid, PepLevelId,PepTypeId,CustomerId,CustomerName,UserName,
- PepDeterminationComments,RequestorComments,BookingOfficeId,EntityName,UpdatedTS
+ PepDeterminationComments,RequestorComments,BookingOfficeId,EntityName,CreatedTS,WCISNumber
 from #temp1
 OPEN PepCURSOR
 FETCH NEXT FROM PepCURSOR INTO @PepId, @PeplevelId,@PepType,@CustomerId,@CustomerName,
-                   @UserName,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS
+                   @UserName,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS,@WCISNumber
 WHILE (@@FETCH_STATUS=0) 
 BEGIN
  -- PeplevelId,peptype, customerid history checking
-declare  @PepLevelIdHist int = 0 ,@PepTypeHist varchar(100),@CustomerIdHist int,
+declare  @PepLevelIdHist int = 0 ,@PepTypeHist varchar(100),@CustomerIdHist int,@WCISNumberHist varchar(100),
 @PepDetCommentsHist varchar(max),
 @RequesterCommentsHist varchar(max),@BookingOfcIdHist int
 declare @ChangedFieldName varchar(max)
@@ -34,7 +35,7 @@ declare @ChangedFieldName varchar(max)
 select top 1 @PepLevelIdHist=pephist.PepLevelId,@PepTypeHist = pephist.PepTypeId,
 @CustomerIdHist = pephist.CustomerId, @PepDetCommentsHist=PepDeterminationComments,
 @BookingOfcIdHist=BookingOfficeId,
-@RequesterCommentsHist=RequestorComments
+@RequesterCommentsHist=RequestorComments,@WCISNumberHist =WCISNumber
  from CDDGPepHistory pephist 
 where pephist.PepId = @PepId
 order by pephist.CreatedTS desc
@@ -51,6 +52,11 @@ if(isnull(@PepTypeHist,0) <>ISNULL(@PepType,0) )
 begin
 insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
 values(@PepId,@CustomerName,@UserName,'PepType',@PepType,@Updated_TS)
+end
+if(isnull(@WCISNumberHist,'') <> ISNULL(@WCISNumber,'') )
+begin 
+insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
+values(@PepId,@CustomerName,@UserName,'WCISnumber',@WCISNumber,@Updated_TS)
 end
 declare @CustmerStatusId int,@CustomerHistoryId int,@EntityNameHist varchar(255)
 declare @CustmerName varchar(255),@CustomerNamehist varchar(255) 
@@ -158,43 +164,43 @@ insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,Updat
 values(@PepId,@CustomerName,@UserName,'LobId',@LobPepId,@Updated_TS)
 end
 --ecn history checking
-declare @Ecn varchar(255) ,@EcnSeqNo int ,@ECNNotProvided bit,@IsFlagged bit
+declare @Ecn varchar(255) ,@EcnSeqNo int ,@ECNNotProvided bit,@IsFlagged bit, @EcnUpdatedTs datetime
 DECLARE @ECNCursor CURSOR
 SET @ECNCursor = CURSOR FAST_FORWARD
 FOR
-select ecn,EcnSeqVal,PrimaryEcnNotProvided,IsFlagged from CDDGEcn where PepId=@PepId and EndDate is null
+select ecn,EcnSeqVal,PrimaryEcnNotProvided,IsFlagged,CreatedTS from CDDGEcn where PepId=@PepId and EndDate is null
 OPEN @ECNCursor
-FETCH NEXT FROM @ECNCursor INTO @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged
+FETCH NEXT FROM @ECNCursor INTO @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged,@EcnUpdatedTs
 WHILE @@FETCH_STATUS = 0
 BEGIN
- declare @HistEcn varchar(255),@HistEcnNotProvided bit,@HistIsFlagged bit
+ declare @HistEcn varchar(255),@HistEcnNotProvided bit,@HistIsFlagged bit 
  select top 1 @HistEcn=Ecn,@ECNNotProvided=PrimaryEcnNotProvided,@HistIsFlagged=IsFlagged from CDDGEcn
   where PepId=@PepId and EndDate is not null and EcnSeqVal=@EcnSeqNo order by CreatedTS desc
  if(@HistEcn is null)
 insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
-values(@PepId,@CustomerName,@UserName,'ECN Added',@Ecn,@Updated_TS)
+values(@PepId,@CustomerName,@UserName,'ECN Added',@Ecn,@EcnUpdatedTs)
  else
  if(isnull(@ecn,'') <> isnull(@HistEcn,''))
   insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
-values(@PepId,@CustomerName,@UserName,'ECN Updated',@Ecn,@Updated_TS)
+values(@PepId,@CustomerName,@UserName,'ECN Updated',@Ecn,@EcnUpdatedTs)
 --Ecn not provided
  if(@HistEcnNotProvided is not null and @HistEcnNotProvided = 1)
  insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
- values(@PepId,@CustomerName,@UserName,'ECN Not Provided',@ECNNotProvided,@Updated_TS)
+ values(@PepId,@CustomerName,@UserName,'ECN Not Provided',@ECNNotProvided,@EcnUpdatedTs)
  --IsFlagged
  if(@HistIsFlagged is not null and @HistIsFlagged = 1)
  insert into #result(pepid,CustomerName,UserName,ChangedFields,ChangedValue,UpdatedTime)
- values(@PepId,@CustomerName,@UserName,'IsFlagged',@IsFlagged,@Updated_TS)
+ values(@PepId,@CustomerName,@UserName,'IsFlagged',@IsFlagged,@EcnUpdatedTs)
  set @HistEcn = null
  set @HistEcnNotProvided = null
  set @HistIsFlagged= null
-FETCH NEXT FROM @ECNCursor INTO  @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged
+FETCH NEXT FROM @ECNCursor INTO  @Ecn,@EcnSeqNo,@ECNNotProvided,@IsFlagged,@EcnUpdatedTs
 END
 CLOSE @ECNCursor
 DEALLOCATE @ECNCursor
 
 FETCH NEXT FROM PepCURSOR INTO @PepId, @PeplevelId,@PepType,@CustomerId,@CustomerName,@UserName 
-              ,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS
+              ,@PepDetComments,@RequesterComments,@BookingOfcId,@EntityName,@Updated_TS,@WCISNumber
 END
 CLOSE PepCURSOR 
 DEALLOCATE PepCURSOR
