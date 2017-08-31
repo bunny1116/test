@@ -1,0 +1,383 @@
+Create WF.ERMT.Application.Services.SASearch dll in Service Folder.
+Create SASearch in SASearch service.
+Create below files in SASearch Folder:
+ISASearch.cs:
+
+using System.Collections.Generic;
+using System.ServiceModel;
+using WF.ERMT.Application.Entities.CustomEntities;
+
+
+namespace WF.ERMT.Application.Services.PEPDetails.SASearch
+{
+    [ServiceContract]
+   public  interface ISASearch
+    {
+        [OperationContract]
+        IEnumerable<SAGeneralInfoEntity> GetAllPEPDetails();
+
+    }
+}
+
+SASearch.cs:
+
+using System.Collections.Generic;
+using WF.ERMT.Application.Entities.CustomEntities;
+using WF.ERMT.Application.Core.Interfaces.Business;
+using System;
+
+namespace WF.ERMT.Application.Services.PEPDetails.SASearch
+{
+  public class SASearch : ISASearch
+    {
+       private readonly ISASearchBusiness iasearchbusiness;
+
+       public SASearch(ISASearchBusiness iasearchbusiness)
+        {
+            this.iasearchbusiness = iasearchbusiness;
+        }
+
+        public IEnumerable<SAGeneralInfoEntity> GetAllPEPDetails()
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+Bussiness:
+add new class file in SASearchBusiness.cs  Bussiness Folder:
+using AutoMapper;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Reflection;
+using WF.ERMT.Application.Core.Interfaces.Business;
+using WF.ERMT.Application.Core.Interfaces.DataAccess;
+using WF.ERMT.Application.DataAccess.UnitOfWork;
+using WF.ERMT.Application.DataEntities.EntityFramework;
+//using WF.ERMT.Application.DataEntities.DataEntities;
+using WF.ERMT.Application.Entities.CustomEntities;
+using System.Text;
+
+namespace WF.ERMT.Application.Business
+{
+   public class SASearchBusiness :ISASearchBusiness
+    {
+        private readonly ISASearchDataAccess iaSearchdataccess;
+        private readonly IUnitOfWork unitOfWork;
+        public SASearchBusiness(ISASearchDataAccess iaSearchdataccess, IUnitOfWork unitofwork)
+        {
+            this.iaSearchdataccess = iaSearchdataccess;
+            this.unitOfWork = unitofwork;
+            
+        }
+
+        public IEnumerable<SAGeneralInfoEntity> GetAllPEPDetails()
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+
+DataAccess:
+crate below file in ConcreteClasses 
+SASearchDataAccess.cs:
+using System;
+using System.Collections.Generic;
+using System.Data.Entity;
+using System.Linq;
+using WF.ERMT.Application.DataAccess.Helpers;
+using System.Data;
+using WF.ERMT.Application.Core.Interfaces.DataAccess;
+using WF.ERMT.Application.DataEntities.EntityFramework;
+using WF.ERMT.Application.Core.Interfaces.Utilities;
+using System.Data.Entity.Core.Objects;
+using System.Data.Entity.Infrastructure;
+using System.Data.Entity.Migrations;
+
+namespace WF.ERMT.Application.DataAccess.ConcreteClasses
+{
+    public class SASearchDataAccess : BaseDataAccess<CDDGSAGeneralInfo>, ISASearchDataAccess
+    {
+        public SASearchDataAccess(IDbFactory dbFactory) : base(dbFactory) { }
+
+        public IEnumerable<CDDGSAGeneralInfo> GetAllPepWithChildDetails()
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+Core:
+create two files in WF.ERMT.Application.Core.Interfaces 
+create ISASearchBusiness.cs in Business:
+
+using System.Collections.Generic;
+using WF.ERMT.Application.Entities.CustomEntities;
+
+namespace WF.ERMT.Application.Core.Interfaces.Business
+{
+    public interface ISASearchBusiness
+    {
+        IEnumerable<SAGeneralInfoEntity> GetAllPEPDetails();
+    }
+}
+
+create ISASearchDataAccess.cs Dataacess Folder:
+using System.Collections.Generic;
+using WF.ERMT.Application.DataEntities.EntityFramework;
+
+namespace WF.ERMT.Application.Core.Interfaces.DataAccess
+{
+    public interface ISASearchDataAccess  : IBaseDataAccess<CDDGSAGeneralInfo>
+    {
+        IEnumerable<CDDGSAGeneralInfo> GetAllPepWithChildDetails();
+    }
+}
+
+Entities:
+WF.ERMT.Application.CustomEntities:
+CustomEntities:
+create DashBoardViewModel.cs in CustomEntities:
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+
+namespace WF.ERMT.Application.Entities.CustomEntities
+{
+    public class DashBoardViewModel
+    {
+       
+        public List<consultantWisePepListViewModel> consultantWisePendingRequests { get; set; }
+        public int consultantWisePendingRequestsCount { get; set; }
+        public List<consultantWisePepListViewModel> consultantWiseCRRequests { get; set; }
+        public int consultantWiseCRRequestsCount { get; set; }
+        public List<consultantWisePepListViewModel> consultantWiseSLARequests { get; set; }
+        public int consultantWiseSLARequestsCount { get; set; }
+        public DisplayPepInformationListViewModel UserPendingRequests { get; set; }
+        public DisplayPepInformationListViewModel UserCRRequests { get; set; }
+        public DisplayPepInformationListViewModel UserSLARequests { get; set; }
+        public List<consultantWisePepListViewModel> consultantWiseRejectedRequests { get; set; }
+        public int consultantWiseRejectedRequestsCount { get; set; }
+        public DisplayPepInformationListViewModel UserRejectedRequests { get; set; }
+    }
+
+    public class DisplayPepInformationListViewModel
+    {
+        public string HeaderInfo { get; set; }
+        public IEnumerable<DisplayListViewModel> PepList { get; set; }
+
+    }
+
+
+
+    public class DisplayListViewModel
+    {
+        public int PepId { get; set; }
+
+        //public virtual List<EcnEntity> Ecns { get; set; }
+        public string PrimaryEcn { get; set; }
+     
+        //public virtual List<PrimaryPepEntity> PrimaryPeps { get; set; }
+        public string PrimaryPep { get; set; }
+        public string AssignedTo { get; set; }
+        public string Status { get; set; }
+        public string Entity { get; set; }
+
+        public int SLA { get; set; }
+
+        public DateTime CreatedTS { get; set; }
+
+    }
+
+    public class consultantWisePepListViewModel
+    {
+        public string consultantName { get; set; }
+        public int consultantId { get; set; }
+        public List<DisplayListViewModel> Requests { get; set; }
+        public int requestCount { get; set; }
+        public string headerMessage { get; set; }
+    }
+
+    public class SearchDetailsViewModel
+    {
+        public DisplayPepInformationListViewModel SearchResult { get; set; }
+
+
+        public SearchSAGeneralInfo SearchCriteria { get; set; }
+    }
+}
+
+
+create SAGeneralInfoEntity.cs file Customentities:
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+using System.Web;
+
+namespace WF.ERMT.Application.Entities.CustomEntities
+{
+    public class SAGeneralInfoEntity
+    {
+        public int Case_Id { get; set; }
+        public int Request_Number { get; set; }
+        public int Master_Account { get; set; }
+        public string Sub_Account_Master_Account_Name { get; set; }
+        public string Sub_Account_Master_Account_TIN { get; set; }
+        public int Company_Entity_ID { get; set; }
+        public int Sub_Account_Number { get; set; }
+        public string Name_on_Sub_Account { get; set; }
+        public string Agent_Code { get; set; }
+        public string BranchAccount { get; set; }
+        public string Sub_AccountStatus { get; set; }
+        public string Sub_AccountClosure { get; set; }
+        public string Sub_Account_Agent_Legal_Name { get; set; }
+        public string Agent_DBA_Trade_Name { get; set; }
+        public int Sub_Account_Agent_TIN_EIN { get; set; }
+        public string Agent_Address { get; set; }
+        public string City { get; set; }
+        public string State { get; set; }
+        public int ZIP_Code { get; set; }
+        public string Country { get; set; }
+        public string Agent_Entity_Type { get; set; }
+        public string Agents_Main_Revenue_Source { get; set; }
+        public string Purpose_of_Sub_Account { get; set; }
+        public int Number_of_Agent_Locations { get; set; }
+        public DateTime Created_TS { get; set; }
+        public string Created_By { get; set; }
+        public DateTime Updated_TS { get; set; }
+        public string Updated_by { get; set; }
+        public DateTime End_Date { get; set; }
+    }
+}
+
+create SearchSAGeneralInfo.cs in Customeentites:
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace WF.ERMT.Application.Entities.CustomEntities
+{
+   public class SearchSAGeneralInfo
+    {
+       public string RequstedBy { get; set; }
+       public string AgentTIN { get; set; }
+       public string RequestNumber { get; set; }
+       public string SALegalName { get; set; }
+       public string RequstedDate { get; set; }
+       public string SAnumber { get; set; }
+       public string MasterAccountName { get; set; }
+       public int SACaseID { get; set; }
+       public string MasterAccountTIN { get; set; }
+       public string typeofSearch { get; set; }
+       public string userid { get; set; }
+    }
+}
+
+Controller:
+Add SASearchController.cs controller in COnteroller folder.
+
+using System;
+using System.Web;
+using System.Web.Mvc;
+using System.Configuration;
+using WF.ERMT.Application.Entities;
+using WF.ERMT.Application.Services.UserDetails;
+using WF.ERMT.Application.Core.Logging.EntLibLogging.Logger;
+using WF.ERMT.Application.Configurations.CommonConfig.Configurations;
+using System.Collections.Generic;
+using System.Linq;
+using WF.ERMT.Application.Services.PEPDetails;
+using Microsoft.Reporting.WebForms;
+using System.Web.UI.WebControls;
+using WF.ERMT.Application.Web.CustomFiltersAttributes;
+using WF.ERMT.Application.Entities.CustomEntities;
+using Autofac;
+using AutoMapper;
+using WF.ERMT.Application.Web.Models;
+using Newtonsoft.Json;
+using System.IO;
+using WF.ERMT.Application.Services.PEPDetails.SASearch;
+
+namespace WF.ERMT.Application.Web.Controllers
+{
+    public class SASearchController : Controller
+    {
+        //
+        // GET: /SASearch/
+        #region Initialization
+        private readonly SASearch _pepservice;
+        private readonly UserDetails _userservice;
+        public SASearchController(SASearch pepservice, UserDetails userservice)
+        {
+            this._pepservice = pepservice;
+            this._userservice = userservice;
+        }
+        #endregion
+        [CustomActionLoggingFilter]
+        public ActionResult PEPDeterminationSearchForm(string typeofSearch)
+        {
+
+            //var item = _pepservice.GetAllPEPFormsCreatedByLOBUser("u279376").OrderByDescending(i=>i.CreatedDate);
+            ViewBag.isSearch = false;
+            ViewBag.isValidationError = false;
+            //ViewBag.typeofSearch = typeofSearch;
+            // return View(item);
+            SearchDetailsViewModel searchDetails = new SearchDetailsViewModel();
+            searchDetails.SearchCriteria = new SearchSAGeneralInfo();
+            searchDetails.SearchCriteria.typeofSearch = typeofSearch;
+            searchDetails.SearchResult = new DisplayPepInformationListViewModel();
+            searchDetails.SearchResult.PepList = new List<DisplayListViewModel>();
+            return View(searchDetails);
+
+        }
+        [HttpPost]
+        [CustomActionLoggingFilter]
+        public ActionResult PEPDeterminationSearchForm(SearchSAGeneralInfo searchCriteria)
+        {
+            string typeOfSearch = searchCriteria.typeofSearch;
+            var userId = (string)Session["userId"];
+            searchCriteria.userid = userId;
+            if (searchCriteria.SACaseID != 0 || !string.IsNullOrWhiteSpace(searchCriteria.RequstedBy) ||
+                !string.IsNullOrWhiteSpace(searchCriteria.AgentTIN) || !string.IsNullOrWhiteSpace(searchCriteria.RequestNumber)
+                || !string.IsNullOrWhiteSpace(searchCriteria.SALegalName) || !string.IsNullOrWhiteSpace(searchCriteria.RequstedDate)
+                || !string.IsNullOrWhiteSpace(searchCriteria.MasterAccountName)
+                || !string.IsNullOrWhiteSpace(searchCriteria.SAnumber)
+                || !string.IsNullOrWhiteSpace(searchCriteria.MasterAccountTIN))
+            {
+                var item = _pepservice.GetAllPEPDetails();
+
+                return View("PEPDeterminationSearchForm", item);
+            }
+            else
+            {
+                ViewBag.isValidationError = true;
+                ViewBag.isSearch = false;
+                SearchDetailsViewModel searchDetails = new SearchDetailsViewModel();
+                searchDetails.SearchCriteria = searchCriteria;
+                searchDetails.SearchResult = new DisplayPepInformationListViewModel();
+                searchDetails.SearchResult.PepList = new List<DisplayListViewModel>();
+                ModelState.AddModelError("ValidationError", "Please enter a value in any field");
+                return View("PEPDeterminationSearchForm", searchDetails);
+            }
+
+
+        }
+
+
+    }
+}
+
+
+
+
