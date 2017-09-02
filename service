@@ -1,0 +1,40 @@
+Services->WF.ERMT.Application.Services.SASearch->SASearch:
+using System.Collections.Generic;
+using System.ServiceModel;
+using WF.ERMT.Application.Entities.CustomEntities;
+
+
+namespace WF.ERMT.Application.Services.SASearch
+{
+    [ServiceContract]
+   public  interface ISASearch
+    { 
+        SearchDetailsViewModel GetGeneralInfoSearchDetails(SearchSAGeneralInfo searchDetails);
+    }
+}
+
+using System.Collections.Generic;
+using WF.ERMT.Application.Entities.CustomEntities;
+using WF.ERMT.Application.Core.Interfaces.Business;
+using System;
+
+namespace WF.ERMT.Application.Services.SASearch
+{
+  public class SASearch : ISASearch
+    {
+       private readonly ISASearchBusiness sasearchbusiness;
+
+       public SASearch(ISASearchBusiness iasearchbusiness)
+        {
+            this.sasearchbusiness = iasearchbusiness;
+        }
+
+
+
+       public SearchDetailsViewModel GetGeneralInfoSearchDetails(SearchSAGeneralInfo searchDetails)
+       {
+           var GIList = sasearchbusiness.GetGeneralInfoSearchDetails(searchDetails);
+           return GIList;
+       }
+    }
+}
