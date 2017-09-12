@@ -1,0 +1,31 @@
+ foreach (var priamry in (Ylist as IList<PrimaryPepEntity>))
+                                {
+                                    var tocompare = (Xlist as IList<PrimaryPepEntity>).Where(i => i.PrimaryPepId == priamry.PreviousPrimaryPepId).FirstOrDefault();
+                                    if (tocompare == null)
+                                    {
+                                        foreach (var p in prop.PropertyType.GetGenericArguments()[0].GetProperties())
+                                        {
+                                            if (p.Name.Equals("PrimaryPepId"))
+                                            {
+                                                changedprimarypep.Append(p.GetValue(priamry) + "|");
+                                            }
+                                            changedprimarypep.Append(p.Name + "|");
+                                        }
+
+
+                                        modifiedProps.Add(changedprimarypep.ToString());
+                                        if (modifiedProps.Count > 0)
+                                        {
+                                            if (ChangedProperties.ContainsKey(prop.Name))
+                                            {
+                                                ChangedProperties.Remove(prop.Name);
+                                                ChangedProperties.Add(prop.Name, modifiedProps);
+                                            }
+                                            else
+                                            {
+                                                ChangedProperties.Add(prop.Name, modifiedProps);
+                                            }
+                                        }
+                                    }
+                                    
+                                }
