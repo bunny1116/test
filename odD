@@ -1,0 +1,184 @@
+     private List<consultantWisePepListViewModel> GetUserDetails(string pepStatus)
+        {
+            List<CDDGPep> peplist;
+            var ConpepList = requestAssignmentDataAccess.GetAll().Where(x => x.EndDate == null).GroupBy(u => u.CDDGUser).Select(y => new { consultant = y.Key, /*Requests = y.Select(q => q.CDDGPep).ToList(),*/ ChangeRequest = y.Select(k => new { pepid = k.PepId, crid = k.ChangeRequestID }) }).ToList();
+            // var ConpepListCR = requestAssignmentDataAccess.GetAll().Where(x => x.EndDate == null && x.ChangeRequestID!=null).GroupBy(u => u.CDDGUser).Select(y => new { consultant = y.Key, Requests = y.Select(q => q.CDDGPep).ToList(), ChangRequest = y.Select(j => j.ChangeRequestID).ToList() }).ToList();
+            Mapper.CreateMap<CDDGPep, consultantWisePepListViewModel>().ForMember(a => a.consultantName, b => b.MapFrom(c => c.CreatedBy));
+
+            #region All Requests
+            //Mapper.CreateMap<CDDGPep, DisplayListViewModel>().ForMember(a => a.Country, b => b.MapFrom(c => c.CDDGCountry)).ForMember(a => a.Customer, b => b.MapFrom(c => c.CDDGCustomer))
+            //    .ForMember(a => a.PrimaryEcn, b => b.MapFrom(c => c.CDDGEcns.Where(e => e.EcnSeqValNum == 1.ToString()).Select(k => k.Ecn).FirstOrDefault()))
+            // .ForMember(a => a.PrimaryPep, b => b.MapFrom(c => c.CDDGPrimaryPeps.Select(k => k.PrimaryPepId.ToString()).FirstOrDefault()))
+            // .ForMember(a => a.AssignedTo, b => b.MapFrom(c => c.CDDGRequestAssignments.Select(k => k.CDDGUser.FirstName).FirstOrDefault()))
+            // .ForMember(a => a.Status, b => b.MapFrom(c => c.CDDGPEPRequestStatu.StatusName))
+            // .ForMember(a => a.Entity, b => b.MapFrom(c => c.CDDGPepType.PepType));
+
+            List<consultantWisePepListViewModel> users = new List<consultantWisePepListViewModel>();
+
+            foreach (var item in ConpepList)
+            {
+                List<CDDGPep> peprequests;
+                List<CDDGPep> peprequestsCR;
+
+                var pepwithcrs = item.ChangeRequest.Where(i => i.crid != null).Select(x => x.crid).ToList();
+
+                var pepidsCr = changeRequestDataAccess.GetAll().Where(i => pepwithcrs.Contains(i.ChangeRequestId) && i.EndDate == null).Select(x => x.ChangeRequestId).ToList();
+                // peprequestsCR = pepdetailsdataccess.GetAll().Where(x => pepidscr.Contains(x.PepId) && x.EndDate == null).ToList();
+
+                //var crs = item.ChangRequest.Where(i => i != null);
+                var pepidsassigned = item.ChangeRequest.Where(i => i.crid == null).Select(x => x.pepid).ToList();
+                peprequests = pepdetailsdataccess.GetAll().Where(x => pepidsassigned.Contains(x.PepId) && x.EndDate == null).ToList();
+
+
+
+                string headerMessage = null;
+                consultantWisePepListViewModel Consultant = new consultantWisePepListViewModel();
+                Consultant.consultantName = item.consultant.FirstName + " " + item.consultant.LastName;
+                Consultant.consultantId = item.consultant.UserID;
+                // provide filters 
+
+                if (pepStatus.ToUpper().Contains("SLA"))
+                {
+                    peprequests.RemoveAll(x => x == null);
+                    // peplist = item.Requests.ToList().Where(x => x.PepRequestStatusId != 4 && x.CreatedTS.AddDays(10) <= DateTime.Now.AddDays(-3)).ToList();
+                    var pepIdsforSLA = peprequests.Where(x => x.PepRequestStatusId == 1 || x.PepRequestStatusId == 2).Select(p => p.PepId).ToList();
+                    var holidaylist = holidayCalenderDataAccess.GetAll().Select(i => i.HolidayDate).ToList();
+                    int countdate = 0;
+                    Dictionary<string, List<string>> pepwithCounterDate = new Dictionary<string, List<string>>();
+                    List<string> counterdate = new List<string>();
+                    int countsladay = 0;
+                    peprequests.ToList().Where(x => x.PepRequestStatusId == 1 || x.PepRequestStatusId == 2).ToList().ForEach(y =>
+                      {
+                          for (DateTime date = y.CreatedTS; date <= y.CreatedTS.AddHours(72); date = date.AddDays(1))
+                          {
+                              foreach (DateTime holidaydate in holidaylist)
+                              {
+                                  if (holidaydate.ToString("d").Equals(date.ToString("d")))
+                                  {
+                                      countdate++;
+                                      counterdate.Add(countdate.ToString());
+                                  }
+                              }
+                              if (date.DayOfWeek.ToString() == "Saturday")
+                              {
+                                  countsladay = countsladay + 2;
+                              }
+                              //if (date.DayOfWeek.ToString() == "Sunday")
+                              //{
+                              //    countsladay++;
+                              //}
+                          }
+                          if (counterdate.Count > 0)
+                          {
+                              pepwithCounterDate.Add(y.PepId.ToString(), counterdate);
+                              int index = pepIdsforSLA.IndexOf(y.PepId);
+                              pepIdsforSLA.RemoveAt(index);
+                          }
+
+                          countdate = 0;
+                          counterdate = new List<string>();
+                      });
+
+                    List<int> pepIDlistSLAsaturday;
+                    List<int> pepIDlistSLAsunday;
+                    List<int> pepIDlistSLA;
+                    List<int> pepIDSLAsaturday = new List<int>();
+                    List<int> pepIDSLAsunday = new List<int>();
+                    List<int> pepIDSLA = new List<int>();
+                    if (pepwithCounterDate.Count > 0)
+                    {
+                        foreach (var pepid in pepwithCounterDate)
+                        {
+
+                            pepIDSLAsaturday = peprequests.Where(x => x.PepId == Int32.Parse(pepid.Key) && x.CreatedTS.DayOfWeek.ToString() == "Saturday").Where(x => x.CreatedTS.Add(new TimeSpan(/*2 + */Int32.Parse(pepid.Value.Last() + countsladay), 0, 0, 0)).AddHours(120).Subtract(new TimeSpan(0, x.CreatedTS.TimeOfDay.Hours, x.CreatedTS.TimeOfDay.Minutes, x.CreatedTS.TimeOfDay.Seconds)) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+                            pepIDSLAsunday = peprequests.Where(x => x.PepId == Int32.Parse(pepid.Key) && x.CreatedTS.DayOfWeek.ToString() == "Sunday").Where(x => x.CreatedTS.Add(new TimeSpan(/*1 +*/ Int32.Parse(pepid.Value.Last() + countsladay), 0, 0, 0)).AddHours(96).Subtract(new TimeSpan(0, x.CreatedTS.TimeOfDay.Hours, x.CreatedTS.TimeOfDay.Minutes, x.CreatedTS.TimeOfDay.Seconds)) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+                            pepIDSLA = peprequests.Where(x => x.PepId == Int32.Parse(pepid.Key) && x.CreatedTS.AddDays(Int32.Parse(pepid.Value.Last())).AddHours(72).AddDays(countsladay) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+
+                        }
+
+                    }
+                    pepIDlistSLAsaturday = peprequests.Where(x => pepIdsforSLA.Contains(x.PepId) && (x.PepRequestStatusId == 1 || x.PepRequestStatusId == 2) && x.CreatedTS.DayOfWeek.ToString() == "Saturday").Where(x => x.CreatedTS.Add(new TimeSpan(/*2 +*/ countsladay, 0, 0, 0)).AddHours(120).Subtract(new TimeSpan(0, x.CreatedTS.TimeOfDay.Hours, x.CreatedTS.TimeOfDay.Minutes, x.CreatedTS.TimeOfDay.Seconds)) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+                    pepIDlistSLAsunday = peprequests.Where(x => pepIdsforSLA.Contains(x.PepId) && (x.PepRequestStatusId == 1 || x.PepRequestStatusId == 2) && x.CreatedTS.DayOfWeek.ToString() == "Sunday").Where(x => x.CreatedTS.Add(new TimeSpan(/*1 +*/ countsladay, 0, 0, 0)).AddHours(96).Subtract(new TimeSpan(0, x.CreatedTS.TimeOfDay.Hours, x.CreatedTS.TimeOfDay.Minutes, x.CreatedTS.TimeOfDay.Seconds)) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+                    pepIDlistSLA = peprequests.Where(x => pepIdsforSLA.Contains(x.PepId) && (x.PepRequestStatusId == 1 || x.PepRequestStatusId == 2) && x.CreatedTS.AddHours(72).AddDays(countsladay) <= DateTime.Now.AddHours(24)).ToList().Select(x => x.PepId).ToList();
+
+                    if (pepIDSLAsaturday.Count > 0)
+                        pepIDlistSLAsaturday.AddRange(pepIDSLAsaturday);
+                    if (pepIDSLAsunday.Count > 0)
+                        pepIDlistSLAsunday.AddRange(pepIDSLAsunday);
+                    if (pepIDSLA.Count > 0)
+                        pepIDlistSLA.AddRange(pepIDSLA);
+
+                    pepIDlistSLA.AddRange(pepIDlistSLAsaturday);
+                    pepIDlistSLA.AddRange(pepIDlistSLAsunday);
+
+                    List<CDDGPep> peplist4SLA = GetPepDetailsFromPepIds(pepIDlistSLA);
+
+                    headerMessage = "Total Requests Approching SLA for: ";
+                    Consultant.Requests = Mapper.Map<IEnumerable<CDDGPep>, IEnumerable<DisplayListViewModel>>(peplist4SLA).ToList();
+                    Consultant.headerMessage = headerMessage.ToUpper();
+                    users.Add(Consultant);
+                }
+                else
+                {
+                    List<int?> pepStatuses = pepStatus.Split('|').Select(Int32.Parse).Cast<int?>().ToList();
+                    peprequests.RemoveAll(x => x == null);
+                    List<DisplayListViewModel> pepDetailsCR = new List<DisplayListViewModel>(); ;
+                    if (pepStatuses.Contains(2) || pepStatuses.Contains(6) /*|| pepStatuses.Contains(3)*/)
+                    {
+                        DisplayPepInformationListViewModel peplist2 = new DisplayPepInformationListViewModel();
+                        //var pepids2 = peprequestsCR.Where(x => x.PepRequestStatusId == 2).Select(x => x.PepId).ToList();
+                        //var pepdetails2 = GetPepDetailsFromPepIds(pepids2);
+                        // List<int?> pepids = pepids2.Select(i => (int?)i).ToList();
+
+                        //var pepdetailscr = GetPEPCRDetails(pepids);
+                        // List<int> pepwithcrs = pepdetailscr.Select(x => x.ChangeRequestId).ToList();
+                        foreach (int crid in pepidsCr)
+                        {
+
+                            var pep = GetSinglePEPbyidforCRbyCRid(crid);
+                            var crnoid = changeRequestDataAccess.FindSingleBy(x => x.ChangeRequestId == crid);
+
+
+                            //int pepidcurrent = pep.PepId;
+                            var display = Mapper.Map<CDDGPep, DisplayListViewModel>(pep);
+
+                            //List<int> pepwithcrs1 = pepdetailscr.Where(x => x.PepId == pep.PepId).Select(x => x.ChangeRequestId).ToList();
+                            //Dictionary<int?, List<int>> pepwithcr = new Dictionary<int?, List<int>>();
+                            //pepwithcr.Add(pep.PepId, pepwithcrs1);
+                            display.ChangeRequestId = crid;
+                            display.pepidwithcrid = pep.PepId.ToString() + "- " + crnoid.CrNo.ToString();
+                            display.AssignedTo = requestAssignmentDataAccess.FindSingleBy(x => x.ChangeRequestID == crid).CDDGUser.FirstName.ToString();
+                            //display.pepidwithcrid = pepwithcr;
+                            pepDetailsCR.Add(display);
+
+                        }
+
+                        var pepidsforcancelled = peprequests.Where(x => /*x.PepRequestStatusId == 3 ||*/ x.PepRequestStatusId == 6).Select(x => x.PepId).ToList();
+                        var pepdetailscancelled = GetPepDetailsFromPepIds(pepidsforcancelled);
+
+                        var pepDetailscancelled = Mapper.Map<List<CDDGPep>, List<DisplayListViewModel>>(pepdetailscancelled);
+                        pepDetailsCR.AddRange(pepDetailscancelled);
+                        Consultant.Requests = pepDetailsCR.OrderBy(x => x.CreatedTS).ToList();
+                        headerMessage = "Total Requests for: ";
+                        Consultant.headerMessage = headerMessage.ToUpper();
+                        users.Add(Consultant);
+                    }
+                    else
+                    {
+                        peprequests.RemoveAll(x => x == null);
+                        peplist = peprequests.ToList().Where(x => x.EndDate == null && pepStatuses.Contains(x.PepRequestStatusId)).ToList();
+                        // peplist= pepdetailsdataccess.GetAll().Where(i=> peplist.Contains(i.pepid))
+                        headerMessage = "Total Requests for: ";
+                        Consultant.Requests = Mapper.Map<IEnumerable<CDDGPep>, IEnumerable<DisplayListViewModel>>(peplist).ToList();
+                        Consultant.headerMessage = headerMessage.ToUpper();
+                        users.Add(Consultant);
+                    }
+
+
+                }
+
+
+            }
+
+            return users;
+        }
